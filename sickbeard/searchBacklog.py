@@ -80,7 +80,7 @@ class BacklogSearcher:
         self.amPaused = False
         
         myDB = db.DBConnection()
-        sqlResults = myDB.select("SELECT DISTINCT(season), showid FROM tv_episodes ep, tv_shows show WHERE season != 0 AND ep.showid = show.tvdb_id AND show.paused = 0 AND ep.airdate > ?", [fromDate.toordinal()])
+        sqlResults = myDB.select("SELECT DISTINCT(season), showid FROM tv_episodes ep, tv_shows show WHERE ep.showid = show.tvdb_id AND show.paused = 0 AND ep.airdate > ?", [fromDate.toordinal()])
 
         totalSeasons = float(len(sqlResults))
         numSeasonsDone = 0.0

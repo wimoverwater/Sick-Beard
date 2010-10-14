@@ -126,7 +126,7 @@ $epLoc
     </td>
     <td>$statusStrings[int($epResult["status"])]</td>
     <td align="center">
-    #if int($epResult["season"]) != 0: 
+    #if int($epResult["season"]) != -10: 
     <a href="searchEpisode?show=$show.tvdbid&season=$epResult["season"]&episode=$epResult["episode"]">search</a>
     #end if
     </td>
