@@ -29,7 +29,7 @@ from threading import Lock
 
 # apparently py2exe won't build these unless they're imported somewhere
 from sickbeard import providers 
-from providers import eztv, nzbs_org, nzbmatrix, tvbinz, nzbsrus, binreq, newznab
+from providers import eztv, nzbs_org, nzbmatrix, tvbinz, nzbsrus, binreq, newznab, womble
 
 from sickbeard import searchCurrent, searchBacklog, showUpdater, versionChecker, properFinder, autoPostProcesser
 from sickbeard import helpers, db, exceptions, queue, scheduler
@@ -65,6 +65,7 @@ providerList = []
 newznabProviderList = []
 
 NEWEST_VERSION = None
+NEWEST_VERSION_STRING = None
 VERSION_NOTIFY = None
 
 INIT_LOCK = Lock()
@@ -105,6 +106,7 @@ USE_NZB = False
 NZB_METHOD = None 
 NZB_DIR = None
 USENET_RETENTION = None
+DOWNLOAD_PROPERS = None
 
 SEARCH_FREQUENCY = None
 BACKLOG_SEARCH_FREQUENCY = None
@@ -126,7 +128,6 @@ TV_DOWNLOAD_DIR = None
 SHOW_TVBINZ = False
 TVBINZ = False
 TVBINZ_UID = None
-TVBINZ_SABUID = None
 TVBINZ_HASH = None
 TVBINZ_AUTH = None
 
@@ -135,6 +136,8 @@ NZBS_UID = None
 NZBS_HASH = None
 
 BINREQ = False
+
+WOMBLE = False
 
 NZBSRUS = False
 NZBSRUS_UID = None
@@ -161,6 +164,10 @@ XBMC_PASSWORD = None
 USE_GROWL = False
 GROWL_HOST = None
 GROWL_PASSWORD = None
+
+USE_TWITTER = False
+TWITTER_USERNAME = None
+TWITTER_PASSWORD = None
 
 EXTRA_SCRIPTS = []
 
@@ -249,7 +256,7 @@ def initialize(consoleLogging=True):
     with INIT_LOCK:
         
         global LOG_DIR, WEB_PORT, WEB_LOG, WEB_ROOT, WEB_USERNAME, WEB_PASSWORD, WEB_HOST, \
-                NZB_METHOD, NZB_DIR, TVBINZ, TVBINZ_UID, TVBINZ_HASH, \
+                NZB_METHOD, NZB_DIR, TVBINZ, TVBINZ_UID, TVBINZ_HASH, DOWNLOAD_PROPERS, \
                 SAB_USERNAME, SAB_PASSWORD, SAB_APIKEY, SAB_CATEGORY, SAB_HOST, \
                 XBMC_NOTIFY_ONSNATCH, XBMC_NOTIFY_ONDOWNLOAD, XBMC_UPDATE_FULL, \
                 XBMC_UPDATE_LIBRARY, XBMC_HOST, XBMC_USERNAME, XBMC_PASSWORD, currentSearchScheduler, backlogSearchScheduler, \
@@ -258,15 +265,15 @@ def initialize(consoleLogging=True):
                 NZBS, NZBS_UID, NZBS_HASH, USE_NZB, USE_TORRENT, TORRENT_DIR, USENET_RETENTION, \
                 SEARCH_FREQUENCY, DEFAULT_SEARCH_FREQUENCY, BACKLOG_SEARCH_FREQUENCY, \
                 DEFAULT_BACKLOG_SEARCH_FREQUENCY, QUALITY_DEFAULT, SEASON_FOLDERS_DEFAULT, \
-                USE_GROWL, GROWL_HOST, GROWL_PASSWORD, PROG_DIR, NZBMATRIX, NZBMATRIX_USERNAME, \
+		USE_GROWL, GROWL_HOST, GROWL_PASSWORD, PROG_DIR, NZBMATRIX, NZBMATRIX_USERNAME, \
                 NZBMATRIX_APIKEY, versionCheckScheduler, VERSION_NOTIFY, PROCESS_AUTOMATICALLY, \
                 KEEP_PROCESSED_DIR, TV_DOWNLOAD_DIR, TVDB_BASE_URL, MIN_SEARCH_FREQUENCY, \
-                MIN_BACKLOG_SEARCH_FREQUENCY, TVBINZ_AUTH, TVBINZ_SABUID, showQueueScheduler, \
+                MIN_BACKLOG_SEARCH_FREQUENCY, TVBINZ_AUTH, showQueueScheduler, \
                 NAMING_SHOW_NAME, NAMING_EP_TYPE, NAMING_MULTI_EP_TYPE, CACHE_DIR, TVDB_API_PARMS, \
                 RENAME_EPISODES, properFinderScheduler, PROVIDER_ORDER, autoPostProcesserScheduler, \
-                CREATE_IMAGES, NAMING_EP_NAME, NAMING_SEP_TYPE, NAMING_USE_PERIODS, \
+                CREATE_IMAGES, NAMING_EP_NAME, NAMING_SEP_TYPE, NAMING_USE_PERIODS, WOMBLE, \
                 NZBSRUS, NZBSRUS_UID, NZBSRUS_HASH, BINREQ, NAMING_QUALITY, providerList, newznabProviderList, \
-                NAMING_DATES, EXTRA_SCRIPTS
+                NAMING_DATES, EXTRA_SCRIPTS, USE_TWITTER, TWITTER_USERNAME, TWITTER_PASSWORD
 
         
         if __INITIALIZED__:
@@ -281,6 +288,7 @@ def initialize(consoleLogging=True):
         CheckSection('SABnzbd')
         CheckSection('XBMC')
         CheckSection('Growl')
+        CheckSection('Twitter')
         
         LOG_DIR = check_setting_str(CFG, 'General', 'log_dir', 'Logs')
         if not helpers.makeDir(LOG_DIR):
@@ -336,6 +344,8 @@ def initialize(consoleLogging=True):
         NZB_METHOD = check_setting_str(CFG, 'General', 'nzb_method', 'blackhole')
         if NZB_METHOD not in ('blackhole', 'sabnzbd'):
             NZB_METHOD = 'blackhole'
+
+        DOWNLOAD_PROPERS = bool(check_setting_int(CFG, 'General', 'download_propers', 1))
         
         USE_NZB = bool(check_setting_int(CFG, 'General', 'use_nzb', 1))
         USE_TORRENT = bool(check_setting_int(CFG, 'General', 'use_torrent', 0))
@@ -359,7 +369,6 @@ def initialize(consoleLogging=True):
         
         TVBINZ = bool(check_setting_int(CFG, 'TVBinz', 'tvbinz', 0))
         TVBINZ_UID = check_setting_str(CFG, 'TVBinz', 'tvbinz_uid', '')
-        TVBINZ_SABUID = check_setting_str(CFG, 'TVBinz', 'tvbinz_sabuid', '')
         TVBINZ_HASH = check_setting_str(CFG, 'TVBinz', 'tvbinz_hash', '')
         TVBINZ_AUTH = check_setting_str(CFG, 'TVBinz', 'tvbinz_auth', '')
         
@@ -376,6 +385,8 @@ def initialize(consoleLogging=True):
         NZBMATRIX_APIKEY = check_setting_str(CFG, 'NZBMatrix', 'nzbmatrix_apikey', '')
         
         BINREQ = bool(check_setting_int(CFG, 'Bin-Req', 'binreq', 1))
+
+        WOMBLE = bool(check_setting_int(CFG, 'Womble', 'womble', 1))
 
         SAB_USERNAME = check_setting_str(CFG, 'SABnzbd', 'sab_username', '')
         SAB_PASSWORD = check_setting_str(CFG, 'SABnzbd', 'sab_password', '')
@@ -394,6 +405,10 @@ def initialize(consoleLogging=True):
         USE_GROWL = bool(check_setting_int(CFG, 'Growl', 'use_growl', 0))
         GROWL_HOST = check_setting_str(CFG, 'Growl', 'growl_host', '')
         GROWL_PASSWORD = check_setting_str(CFG, 'Growl', 'growl_password', '')
+
+        USE_TWITTER = bool(check_setting_int(CFG, 'Twitter', 'use_twitter', 0))
+        TWITTER_USERNAME = check_setting_str(CFG, 'Twitter', 'twitter_username', '')
+        TWITTER_PASSWORD = check_setting_str(CFG, 'Twitter', 'twitter_password', '')
 
         EXTRA_SCRIPTS = [x for x in check_setting_str(CFG, 'General', 'extra_scripts', '').split('|') if x]
 
@@ -599,6 +614,7 @@ def save_config():
     CFG['General']['search_frequency'] = int(SEARCH_FREQUENCY)
     CFG['General']['backlog_search_frequency'] = int(BACKLOG_SEARCH_FREQUENCY)
     CFG['General']['use_nzb'] = int(USE_NZB)
+    CFG['General']['download_propers'] = int(DOWNLOAD_PROPERS)
     CFG['General']['quality_default'] = int(QUALITY_DEFAULT)
     CFG['General']['season_folders_default'] = int(SEASON_FOLDERS_DEFAULT)
     CFG['General']['provider_order'] = ' '.join([x.getID() for x in providers.sortedProviderList()])
@@ -624,7 +640,6 @@ def save_config():
     CFG['Blackhole']['torrent_dir'] = TORRENT_DIR
     CFG['TVBinz']['tvbinz'] = int(TVBINZ)
     CFG['TVBinz']['tvbinz_uid'] = TVBINZ_UID
-    CFG['TVBinz']['tvbinz_sabuid'] = TVBINZ_SABUID
     CFG['TVBinz']['tvbinz_hash'] = TVBINZ_HASH
     CFG['TVBinz']['tvbinz_auth'] = TVBINZ_AUTH
     CFG['NZBs']['nzbs'] = int(NZBS)
@@ -637,6 +652,7 @@ def save_config():
     CFG['NZBMatrix']['nzbmatrix_username'] = NZBMATRIX_USERNAME
     CFG['NZBMatrix']['nzbmatrix_apikey'] = NZBMATRIX_APIKEY
     CFG['Bin-Req']['binreq'] = int(BINREQ)
+    CFG['Womble']['womble'] = int(WOMBLE)
     CFG['SABnzbd']['sab_username'] = SAB_USERNAME
     CFG['SABnzbd']['sab_password'] = SAB_PASSWORD
     CFG['SABnzbd']['sab_apikey'] = SAB_APIKEY
@@ -652,7 +668,10 @@ def save_config():
     CFG['Growl']['use_growl'] = int(USE_GROWL)
     CFG['Growl']['growl_host'] = GROWL_HOST
     CFG['Growl']['growl_password'] = GROWL_PASSWORD
-    
+    CFG['Twitter']['use_twitter'] = int(USE_TWITTER)
+    CFG['Twitter']['twitter_username'] = TWITTER_USERNAME
+    CFG['Twitter']['twitter_password'] = TWITTER_PASSWORD
+ 
     CFG['Newznab']['newznab_data'] = '!!!'.join([x.configStr() for x in newznabProviderList])
     
     CFG.write()

@@ -145,7 +145,8 @@ def _getEpisode(show, season, episode):
 
 ManageMenu = [
             { 'title': 'Manage Searches', 'path': 'manage/manageSearches' },
-           #{ 'title': 'Episode Overview', 'path': 'manageShows/episodeOverview' },
+           #{ 'title': 'Episode Overview', 'path': 'manage/episodeOverview' },
+           { 'title': 'Backlog Overview', 'path': 'manage/backlogOverview' },
             ]
 
 class ManageSearches:
@@ -157,7 +158,7 @@ class ManageSearches:
         t.backlogPaused = sickbeard.backlogSearchScheduler.action.amPaused
         t.searchStatus = sickbeard.currentSearchScheduler.action.amActive
         t.submenu = ManageMenu
-        
+
         return _munge(t)
         
     @cherrypy.expose
@@ -204,6 +205,46 @@ class Manage:
         
         t = PageTemplate(file="manage.tmpl")
         t.submenu = ManageMenu
+        return _munge(t)
+
+    @cherrypy.expose
+    def backlogOverview(self):
+
+        t = PageTemplate(file="manage_backlogOverview.tmpl")
+        t.submenu = ManageMenu
+
+        myDB = db.DBConnection()
+        
+        showCounts = {}
+        showCats = {}
+        showSQLResults = {}
+        
+        for curShow in sickbeard.showList:
+
+            epCounts = {}
+            epCats = {}
+            epCounts[Overview.SKIPPED] = 0
+            epCounts[Overview.WANTED] = 0
+            epCounts[Overview.QUAL] = 0
+            epCounts[Overview.GOOD] = 0
+            epCounts[Overview.UNAIRED] = 0
+
+            sqlResults = myDB.select("SELECT * FROM tv_episodes WHERE showid = ? ORDER BY season*1000+episode DESC", [curShow.tvdbid])
+
+            for curResult in sqlResults:
+    
+                curEpCat = curShow.getOverview(int(curResult["status"]))
+                epCats[str(curResult["season"])+"x"+str(curResult["episode"])] = curEpCat
+                epCounts[curEpCat] += 1
+
+            showCounts[curShow.tvdbid] = epCounts
+            showCats[curShow.tvdbid] = epCats
+            showSQLResults[curShow.tvdbid] = sqlResults
+        
+        t.showCounts = showCounts
+        t.showCats = showCats
+        t.showSQLResults = showSQLResults
+        
         return _munge(t)
 
     @cherrypy.expose
@@ -593,6 +634,7 @@ class ConfigGeneral:
             def __init__(self):
                 self.name = "Show Name"
                 self.genre = "Comedy"
+                self.air_by_date = 0
         
         # fake a TVShow (hack since new TVShow is coming anyway)
         class TVEpisode(tv.TVEpisode):
@@ -632,7 +674,8 @@ class ConfigEpisodeDownloads:
                        sab_apikey=None, sab_category=None, sab_host=None, use_nzb=None,
                        use_torrent=None, torrent_dir=None, nzb_method=None, usenet_retention=None,
                        search_frequency=None, backlog_search_frequency=None, tv_download_dir=None,
-                       keep_processed_dir=None, process_automatically=None, rename_episodes=None):
+                       keep_processed_dir=None, process_automatically=None, rename_episodes=None,
+                       download_propers=None):
 
         results = []
 
@@ -649,6 +692,11 @@ class ConfigEpisodeDownloads:
 
         config.change_BACKLOG_SEARCH_FREQUENCY(backlog_search_frequency)
 
+        if download_propers == "on":
+            download_propers = 1
+        else:
+            download_propers = 0
+            
         if process_automatically == "on":
             process_automatically = 1
         else:
@@ -684,6 +732,8 @@ class ConfigEpisodeDownloads:
         sickbeard.NZB_METHOD = nzb_method
         sickbeard.USENET_RETENTION = int(usenet_retention)
         sickbeard.SEARCH_FREQUENCY = int(search_frequency)
+
+        sickbeard.DOWNLOAD_PROPERS = download_propers
 
         sickbeard.USE_NZB = use_nzb
         sickbeard.USE_TORRENT = use_torrent
@@ -780,7 +830,7 @@ class ConfigProviders:
     @cherrypy.expose
     def saveProviders(self, tvbinz_uid=None, tvbinz_hash=None, nzbs_org_uid=None,
                       nzbs_org_hash=None, nzbmatrix_username=None, nzbmatrix_apikey=None,
-                      tvbinz_auth=None, tvbinz_sabuid=None, provider_order=None,
+                      tvbinz_auth=None, provider_order=None,
                       nzbs_r_us_uid=None, nzbs_r_us_hash=None, newznab_string=None):
 
         results = []
@@ -838,6 +888,8 @@ class ConfigProviders:
                 sickbeard.NZBMATRIX = curEnabled
             elif curProvider == 'bin_req':
                 sickbeard.BINREQ = curEnabled
+            elif curProvider == 'womble_s_index':
+                sickbeard.WOMBLE = curEnabled
             elif curProvider == 'eztv_bt_chat':
                 sickbeard.USE_TORRENT = curEnabled
             elif curProvider in newznabProviderDict:
@@ -847,8 +899,6 @@ class ConfigProviders:
 
         if tvbinz_uid:
             sickbeard.TVBINZ_UID = tvbinz_uid.strip()
-        if tvbinz_sabuid:
-            sickbeard.TVBINZ_SABUID = tvbinz_sabuid.strip()
         if tvbinz_hash:
             sickbeard.TVBINZ_HASH = tvbinz_hash.strip()
         if tvbinz_auth:
@@ -888,7 +938,7 @@ class ConfigNotifications:
     @cherrypy.expose
     def saveNotifications(self, xbmc_notify_onsnatch=None, xbmc_notify_ondownload=None, 
                           xbmc_update_library=None, xbmc_update_full=None, xbmc_host=None, xbmc_username=None, xbmc_password=None,
-                          use_growl=None, growl_host=None, growl_password=None, ):
+                          use_growl=None, growl_host=None, growl_password=None, use_twitter=None):
 
         results = []
 
@@ -917,6 +967,11 @@ class ConfigNotifications:
         else:
             use_growl = 0
 
+        if use_twitter == "on":
+            use_twitter = 1
+        else:
+            use_twitter = 0
+
         sickbeard.XBMC_NOTIFY_ONSNATCH = xbmc_notify_onsnatch 
         sickbeard.XBMC_NOTIFY_ONDOWNLOAD = xbmc_notify_ondownload
         sickbeard.XBMC_UPDATE_LIBRARY = xbmc_update_library
@@ -924,12 +979,13 @@ class ConfigNotifications:
         sickbeard.XBMC_HOST = xbmc_host
         sickbeard.XBMC_USERNAME = xbmc_username
         sickbeard.XBMC_PASSWORD = xbmc_password
-
         
         sickbeard.USE_GROWL = use_growl
         sickbeard.GROWL_HOST = growl_host
         sickbeard.GROWL_PASSWORD = growl_password
-        
+       
+        sickbeard.USE_TWITTER = use_twitter
+
         sickbeard.save_config()
         
         if len(results) > 0:
@@ -1237,7 +1293,28 @@ class Home:
     def testGrowl(self, host=None, password=None):
         notifiers.testGrowl(host, password)
         return "Tried sending growl to "+host+" with password "+password
-        
+      
+    @cherrypy.expose
+    def twitterStep1(self):
+        return notifiers.testTwitter1()
+
+    @cherrypy.expose
+    def twitterStep2(self, key):
+        result = notifiers.testTwitter2(key)
+        logger.log("result: "+str(result))
+        if result:
+            return "Key verification successful"
+        else:
+            return "Unable to verify key"
+
+    @cherrypy.expose
+    def testTwitter(self):
+        result = notifiers.testTwitter()
+        if result:
+            return "Tweet successful, check your twitter to make sure it worked"
+        else:
+            return "Error sending tweet"
+ 
     @cherrypy.expose
     def testXBMC(self, host=None, username=None, password=None):
         notifiers.testXBMC(urllib.unquote_plus(host), username, password)
@@ -1298,8 +1375,6 @@ class Home:
         
         t.show = showObj
         t.sqlResults = sqlResults
-        
-        myDB = db.DBConnection()
         
         epCounts = {}
         epCats = {}

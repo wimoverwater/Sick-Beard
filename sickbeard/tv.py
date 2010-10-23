@@ -885,7 +885,7 @@ class TVShow(object):
 
         # if the quality isn't one we want under any circumstances then just say no
         anyQualities, bestQualities = Quality.splitQuality(self.quality)
-        logger.log("A,B = "+str(anyQualities)+" "+str(bestQualities)+" and we are "+str(quality), logger.DEBUG)
+        logger.log("any,best = "+str(anyQualities)+" "+str(bestQualities)+" and we are "+str(quality), logger.DEBUG)
         
         if quality not in anyQualities + bestQualities:
             return False
@@ -899,6 +899,8 @@ class TVShow(object):
         
         epStatus = int(sqlResults[0]["status"])
 
+        logger.log("current episode status: "+str(epStatus), logger.DEBUG)
+        
         # if we know we don't want it then just say no
         if epStatus in (SKIPPED, IGNORED, ARCHIVED) and not manualSearch:
             logger.log("Ep is skipped, not bothering", logger.DEBUG)
@@ -926,12 +928,6 @@ class TVShow(object):
         
     def getOverview(self, epStatus):
 
-        anyQualities, bestQualities = Quality.splitQuality(self.quality)
-        if bestQualities:
-            maxBestQuality = max(bestQualities)
-        else:
-            maxBestQuality = None 
-    
         if epStatus == WANTED:
             return Overview.WANTED
         elif epStatus in (UNAIRED, UNKNOWN):
@@ -941,6 +937,13 @@ class TVShow(object):
         elif epStatus == ARCHIVED:
             return Overview.GOOD
         elif epStatus in Quality.DOWNLOADED + Quality.SNATCHED + Quality.SNATCHED_PROPER:
+
+            anyQualities, bestQualities = Quality.splitQuality(self.quality)
+            if bestQualities:
+                maxBestQuality = max(bestQualities)
+            else:
+                maxBestQuality = None 
+        
             epStatus, curQuality = Quality.splitCompositeStatus(epStatus)
             
             # if they don't want re-downloads then we call it good if they have anything
@@ -1138,19 +1141,24 @@ class TVEpisode:
                 # and it hasn't aired yet set the status to UNAIRED
                 logger.log("Episode airs in the future, changing status from " + str(self.status) + " to " + str(UNAIRED), logger.DEBUG)
                 self.status = UNAIRED
+            # if there's no airdate then set it to skipped (and respect ignored)
             elif self.airdate == datetime.date.fromordinal(1):
-                if self.status != IGNORED:
+                if self.status == IGNORED:
+                    logger.log("Episode has no air date, but it's already marked as ignored", logger.DEBUG)
+                else:
                     logger.log("Episode has no air date, automatically marking it skipped", logger.DEBUG)
                     self.status = SKIPPED
-                else:
-                    logger.log("Episode has no air date, but it's already marked as ignored", logger.DEBUG)
+            # if we don't have the file and the airdate is in the past
             else:
                 if self.status == UNAIRED:
                     self.status = WANTED
     
                 # if we somehow are still UNKNOWN then just skip it
                 elif self.status == UNKNOWN:
-                        self.status = SKIPPED
+                    self.status = SKIPPED
+                
+                else:
+                    logger.log("Not touching status because we have no ep file, the airdate is in the past, and the status is "+str(self.status), logger.DEBUG)
 
         # if we have a media file then it's downloaded
         elif sickbeard.helpers.isMediaFile(self.location):

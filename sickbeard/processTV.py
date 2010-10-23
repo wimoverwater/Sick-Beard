@@ -82,10 +82,15 @@ def deleteAssociatedFiles(file):
     if not ek.ek(os.path.isfile, file):
         return
 
-    baseName = file.rpartition('.')[0]
+    baseName = file.rpartition('.')[0]+'.'
 
-    for movedFilePath in ek.ek(glob.glob, baseName+'.*'):
-        os.remove(movedFilePath)
+    for associatedFilePath in ek.ek(glob.glob, baseName+'*'):
+        # only delete it if the only non-shared part is the extension
+        if '.' in associatedFilePath[len(baseName):]:
+            logger.log("Not deleting file "+associatedFilePath+" because it looks like it's not related", logger.DEBUG)
+            continue
+        logger.log("Deleting file "+associatedFilePath+" because it is associated with "+file, logger.DEBUG)
+        ek.ek(os.remove, associatedFilePath)
         
 def _checkForExistingFile(renamedFilePath, oldFile):
 
@@ -93,7 +98,7 @@ def _checkForExistingFile(renamedFilePath, oldFile):
     if ek.ek(os.path.isfile, renamedFilePath):
         
         # see if it's bigger than our old file
-        if ek.ek(os.path.getsize, renamedFilePath) > ek.ek(os.path.getsize, oldFile):
+        if ek.ek(os.path.getsize, renamedFilePath) >= ek.ek(os.path.getsize, oldFile):
             return 1
         
         else:
@@ -153,6 +158,9 @@ def processDir (dirName, nzbName=None, recurse=False):
         return returnStr
     elif os.path.basename(dirName).startswith('_UNDERSIZED_'):
         returnStr += logHelper("The directory name indicates that it was previously rejected for being undersized, cancelling", logger.DEBUG)
+        return returnStr
+    elif os.path.basename(dirName).startswith('_UNPACK_'):
+        returnStr += logHelper("The directory name indicates that this release is in the process of being unpacked, skipping", logger.DEBUG)
         return returnStr
 
     # make sure the dir isn't inside a show dir
@@ -535,7 +543,7 @@ def processFile(fileName, downloadDir=None, nzbName=None):
     if existingResult in (-2, 2):
         existingFile = rootEp.location
         if rootEp.status in Quality.SNATCHED_PROPER:
-            returnStr += logHelper(existingFile + " already exists and is larger but I'm deleting it to make way for the proper", logger.DEBUG)
+            returnStr += logHelper(existingFile + " already exists and is the same size or larger but I'm deleting it to make way for the proper", logger.DEBUG)
         else:
             returnStr += logHelper(existingFile + " already exists but it's smaller than the new file so I'm replacing it", logger.DEBUG)
 
@@ -586,9 +594,12 @@ def processFile(fileName, downloadDir=None, nzbName=None):
     for curScriptName in sickbeard.EXTRA_SCRIPTS:
         script_cmd = shlex.split(curScriptName) + [rootEp.location, biggestFileName, str(tvdb_id), str(season), str(episode), str(rootEp.airdate)]
         returnStr += logHelper("Executing command "+str(script_cmd))
-        p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        out, err = p.communicate()
-        returnStr += logHelper("Script result: "+str(out), logger.DEBUG)
+        try:
+            p = subprocess.Popen(script_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            out, err = p.communicate()
+            returnStr += logHelper("Script result: "+str(out), logger.DEBUG)
+        except OSError, e:
+            returnStr += logHelper("Unable to run extra_script: "+str(e))
 
     returnStr += logHelper("Post processing finished successfully", logger.DEBUG)
 
