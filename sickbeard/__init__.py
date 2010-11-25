@@ -188,6 +188,10 @@ TWITTER_USERNAME = None
 TWITTER_PASSWORD = None
 TWITTER_PREFIX = None
 
+USE_MYEPISODES = False
+MYEPISODES_USERNAME = None
+MYEPISODES_PASSWORD = None
+
 EXTRA_SCRIPTS = []
 
 GIT_PATH = None
@@ -302,7 +306,8 @@ def initialize(consoleLogging=True):
                 NAMING_DATES, EXTRA_SCRIPTS, USE_TWITTER, TWITTER_USERNAME, TWITTER_PASSWORD, TWITTER_PREFIX, \
                 METADATA_TYPE, METADATA_SHOW, METADATA_EPISODE, metadata_generator, \
                 ART_POSTER, ART_FANART, ART_THUMBNAILS, ART_SEASON_THUMBNAILS, \
-                NEWZBIN, NEWZBIN_USERNAME, NEWZBIN_PASSWORD, GIT_PATH
+                NEWZBIN, NEWZBIN_USERNAME, NEWZBIN_PASSWORD, GIT_PATH, \
+                USE_MYEPISODES, MYEPISODES_USERNAME, MYEPISODES_PASSWORD
 
 
         if __INITIALIZED__:
@@ -318,6 +323,7 @@ def initialize(consoleLogging=True):
         CheckSection('XBMC')
         CheckSection('Growl')
         CheckSection('Twitter')
+        CheckSection('MyEpisodes')
 
         LOG_DIR = check_setting_str(CFG, 'General', 'log_dir', 'Logs')
         if not helpers.makeDir(LOG_DIR):
@@ -444,6 +450,10 @@ def initialize(consoleLogging=True):
         TWITTER_PASSWORD = check_setting_str(CFG, 'Twitter', 'twitter_password', '')
         TWITTER_PREFIX = check_setting_str(CFG, 'Twitter', 'twitter_prefix', 'Sick Beard')
 
+        USE_MYEPISODES = bool(check_setting_int(CFG, 'MyEpisodes', 'use_myepisodes', 0))
+        MYEPISODES_USERNAME = check_setting_str(CFG, 'MyEpisodes', 'myepisodes_username', '')
+        MYEPISODES_PASSWORD = check_setting_str(CFG, 'MyEpisodes', 'myepisodes_password', '')
+		
         GIT_PATH = check_setting_str(CFG, 'General', 'git_path', '')
 
         EXTRA_SCRIPTS = [x for x in check_setting_str(CFG, 'General', 'extra_scripts', '').split('|') if x]
@@ -813,6 +823,11 @@ def save_config():
     new_config['Twitter']['twitter_username'] = TWITTER_USERNAME
     new_config['Twitter']['twitter_password'] = TWITTER_PASSWORD
     new_config['Twitter']['twitter_prefix'] = TWITTER_PREFIX
+	
+    new_config['MyEpisodes'] = {}
+    new_config['MyEpisodes']['use_myepisodes'] = int(USE_MYEPISODES)
+    new_config['MyEpisodes']['myepisodes_username'] = MYEPISODES_USERNAME
+    new_config['MyEpisodes']['myepisodes_password'] = MYEPISODES_PASSWORD
 
     new_config['Newznab'] = {}
     new_config['Newznab']['newznab_data'] = '!!!'.join([x.configStr() for x in newznabProviderList])

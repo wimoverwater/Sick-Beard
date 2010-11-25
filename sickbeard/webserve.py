@@ -985,7 +985,8 @@ class ConfigNotifications:
     @cherrypy.expose
     def saveNotifications(self, xbmc_notify_onsnatch=None, xbmc_notify_ondownload=None,
                           xbmc_update_library=None, xbmc_update_full=None, xbmc_host=None, xbmc_username=None, xbmc_password=None,
-                          use_growl=None, growl_host=None, growl_password=None, use_twitter=None):
+                          use_growl=None, growl_host=None, growl_password=None, use_twitter=None, 
+                          use_myepisodes=None, myepisodes_username=None, myepisodes_password=None):
 
         results = []
 
@@ -1019,6 +1020,11 @@ class ConfigNotifications:
         else:
             use_twitter = 0
 
+        if use_myepisodes == "on":
+            use_myepisodes = 1
+        else:
+            use_myepisodes = 0
+
         sickbeard.XBMC_NOTIFY_ONSNATCH = xbmc_notify_onsnatch
         sickbeard.XBMC_NOTIFY_ONDOWNLOAD = xbmc_notify_ondownload
         sickbeard.XBMC_UPDATE_LIBRARY = xbmc_update_library
@@ -1033,6 +1039,10 @@ class ConfigNotifications:
 
         sickbeard.USE_TWITTER = use_twitter
 
+        sickbeard.USE_MYEPISODES = use_myepisodes
+        sickbeard.MYEPISODES_USERNAME = myepisodes_username
+        sickbeard.MYEPISODES_PASSWORD = myepisodes_password
+		
         sickbeard.save_config()
 
         if len(results) > 0:
@@ -1367,6 +1377,10 @@ class Home:
     def testXBMC(self, host=None, username=None, password=None):
         notifiers.testXBMC(urllib.unquote_plus(host), username, password)
         return "Tried sending XBMC notification to "+urllib.unquote_plus(host)
+
+    @cherrypy.expose
+    def testMyepisodes(self, username=None, password=None):
+        return notifiers.testMyepisodes(username, password)
 
     @cherrypy.expose
     def shutdown(self):

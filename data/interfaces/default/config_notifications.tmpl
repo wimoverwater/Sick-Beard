@@ -49,6 +49,12 @@
 
   });
 
+  \$('#testMyepisodes').click(function(){
+    var myepisodes_username = \$("#myepisodes_username").val();
+    var myepisodes_password = \$("#myepisodes_password").val();
+
+    \$.get("$sbRoot/home/testMyepisodes", {'username': myepisodes_username, 'password': myepisodes_password}, function (data){alert(data)});
+  });
 });  
       
 </script>
@@ -144,6 +150,27 @@ Enter the key Twitter gave you below, and click "Verify Key".<br />
 <strong>Step Three:</strong><br />
 <input type="button" value="Test Twitter" id="testTwitter">
 
+</fieldset>
+</div>
+
+<div class="EntryBlock">
+<fieldset class="EntryFieldSet">
+
+<legend>MyEpisodes.com</legend>
+
+<label for="use_myepisodes"><input type="checkbox" name="use_myepisodes" id="use_myepisodes" #if $sickbeard.USE_MYEPISODES then "CHECKED" else ""#> <strong>Notify MyEpisodes.com on episode aquired</strong></label><br />
+SB will notify MyEpisodes.com when aquiring new episodes.<br />
+<br />
+<strong>MyEpisodes Username:</strong><br />
+Username of your MyEpisodes.com account.<br />
+<input type="text" name="myepisodes_username" id="myepisodes_username" value="$sickbeard.MYEPISODES_USERNAME" size="35"><br />
+<br />
+
+<strong>MyEpisodes Password:</strong><br />
+Password of your MyEpisodes.com account.<br />
+<input type="password" name="myepisodes_password" id="myepisodes_password" value="$sickbeard.MYEPISODES_PASSWORD" size="35"><br />
+<br />
+<input type="button" value="Test MyEpisodes.com" id="testMyepisodes">
 </fieldset>
 </div>
 

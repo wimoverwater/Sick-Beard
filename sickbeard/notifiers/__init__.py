@@ -3,6 +3,7 @@ import sickbeard
 import xbmc
 import growl
 import tweet
+import myepisodes
 
 from sickbeard.common import *
 
@@ -22,6 +23,9 @@ def testTwitter2(key):
 def testTwitter():
     return tweet.notifyTwitter("This is a test notification from Sick Beard", force=True)
 
+def testMyepisodes(username=None, password=None):
+    return myepisodes.doLogin(username, password)
+	
 def notify(type, message):
 
     if type == NOTIFY_DOWNLOAD and sickbeard.XBMC_NOTIFY_ONDOWNLOAD == True:
@@ -34,3 +38,4 @@ def notify(type, message):
 
     if type == NOTIFY_DOWNLOAD:
         tweet.notifyTwitter(message)
+        myepisodes.notifyMyepisodes(notifyStrings[type], message)
